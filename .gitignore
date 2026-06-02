@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Build output (the published plugin compiles src/*.ts -> dist/)
+dist
+*.tsbuildinfo
+.eslintcache
+
+# regen merge-anchor scratch files (transient)
+*.dfy.base
+*.dfy.merged
+
+# Editor / OS
+.DS_Store
+*.log
+
+# Env / local
+.env
+.env.local
+
+# NOTE: src/*.dfy and src/*.dfy.gen are intentionally TRACKED — CI regenerates
+# and diff-checks them against src/*.ts (see LemmaScript-files.txt).

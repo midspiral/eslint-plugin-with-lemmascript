@@ -5,7 +5,9 @@
 > one-hop import every existing rule checks. If it stays silent, there is provably no
 > laundered path. The proof is what makes a green check mean what you think it means.
 
-**Status:** _design._ Nothing built yet — this is the spec and staged plan.
+**Status:** _spike verified (2026-06-01)._ Stage 0 (reachability core) **and** the Stage 1
+domination/strictness meta-theorem are proved — **23 Dafny obligations, 0 errors**, and
+`src/core.verified.ts` typechecks. The ESLint shell + demo are still to come.
 **Category:** greenfield verified feature, distributed through a brownfield host's
 **extension API** (an ESLint flat-config plugin) — no fork.
 
@@ -246,17 +248,20 @@ Verified core first; the shell is glue that can only call it.
 
 | Stage | Lands | Status |
 |---|---|---|
-| **0 — reachability core** | `reach` predicate; `canReach` (sound + complete + terminating); `reachesAny` | _planned_ |
-| **1 — constraint + domination** | `violates` decides a constraint exactly; **domination + strictness** theorems (the "why") with the laundered-path counterexample | _planned_ |
+| **0 — reachability core** | `reach` predicate; `canReach` (sound + complete + terminating); `reachesAny` | **✓ done** (reused xyflow `canReach`; `reachesAny` set-reach) |
+| **1 — constraint + domination** | `violates` decides a constraint exactly; **domination + strictness** theorems (the "why") with the laundered-path counterexample | **✓ done** (`violates`; `Domination`; `Strictness` = `ui→svc→db`) |
 | **2 — witness path** | `findReachPath` returns the offending chain; proven a valid source→sink path | _planned_ |
 | **3 — ESLint plugin shell** | graph extraction (crawl/cache), `no-forbidden-reach` rule, options schema, report with chain | _planned_ |
 | **4 — demo + side-by-side** | layered sample project; `import/no-restricted-paths` passes while we catch; run in CI, observed | _planned_ |
 | **5 — order-respecting note (optional)** | prove direct checking *is* sound for a partial-order layering — scopes the tool honestly: forbidden-reach is for isolation/enclave policies, the case the order doesn't cover | _deferred_ |
 
-**First action — the spike:** Stage 0 + the strictness witness from Stage 1. Show
-LemmaScript proving `canReach` complete and exhibiting `violates ∧ ¬directViolation` on the
-2-edge laundered path. If that proof is clean and *followable*, the spine holds and the
-plugin builds around it.
+**First action — the spike (✓ done 2026-06-01):** Stage 0 + the strictness witness from
+Stage 1. LemmaScript proves `canReach` sound+complete+terminating, `reachesAny`/`violates`
+exact, and exhibits `violates ∧ ¬directViolation` on the 2-edge laundered path `ui→svc→db`
+(`Strictness`). 23 obligations, 0 errors; the core typechecks. The proof is clean and
+followable — the reachability machinery is the proven xyflow `canReach`, the fresh content
+is the `Domination`/`Strictness` pair. The spine holds; the plugin builds around it. **Next:
+Stage 3 — the ESLint shell** (graph extraction + the `no-forbidden-reach` rule).
 
 ## 10. Decisions
 
