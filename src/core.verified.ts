@@ -76,3 +76,69 @@ export function violates(edges: Edge[], sources: string[], sinks: string[]): boo
   }
   return false;
 }
+
+// ── Witness validation (the certifying-algorithm half) ──────────────────────
+// The untrusted shell searches the graph for a candidate laundering chain; this
+// VERIFIED checker vouches for it before it is ever shown. So the chain printed
+// in a lint error is proof-carrying: a real import path from `from` to a sink.
+
+// Decide hasEdge exactly: is there a direct edge a → b?
+export function edgeExists(edges: Edge[], a: string, b: string): boolean {
+  //@ verify
+  let i = 0;
+  while (i < edges.length) {
+    if (edges[i].source === a && edges[i].target === b) {
+      return true;
+    }
+    i = i + 1;
+  }
+  return false;
+}
+
+// Validate a candidate chain: true ⟹ `chain` is a genuine import path that
+// starts at `from`, ends at a forbidden sink, and steps along real edges.
+export function checkChain(edges: Edge[], chain: string[], from: string, sinks: string[]): boolean {
+  //@ verify
+  if (chain.length === 0) {
+    return false;
+  }
+  if (chain[0] !== from) {
+    return false;
+  }
+  if (!sinks.includes(chain[chain.length - 1])) {
+    return false;
+  }
+  let i = 0;
+  while (i < chain.length - 1) {
+    if (!edgeExists(edges, chain[i], chain[i + 1])) {
+      return false;
+    }
+    i = i + 1;
+  }
+  return true;
+}
+
+// ── Verified witness CONSTRUCTION ───────────────────────────────────────────
+// findReachPath PRODUCES the laundering chain in proven code: it returns a path
+// [from, ..., sink] whenever `from` reaches a forbidden sink, and [] otherwise —
+// sound AND complete. The path-BFS keeps whole paths in the frontier, so each is
+// its own reachability witness; no unverified search is trusted.
+export function findReachPath(edges: Edge[], from: string, sinks: string[]): string[] {
+  //@ verify
+  let frontier: string[][] = [[from]];
+  let visited: string[] = [];
+  while (frontier.length > 0) {
+    const p = frontier[0];
+    frontier = frontier.slice(1);
+    const cur = p[p.length - 1];
+    if (sinks.includes(cur)) {
+      return p;
+    }
+    if (!visited.includes(cur)) {
+      visited = [...visited, cur];
+      const extended = edges.filter((e) => e.source === cur).map((e) => [...p, e.target]);
+      frontier = [...frontier, ...extended];
+    }
+  }
+  return [];
+}

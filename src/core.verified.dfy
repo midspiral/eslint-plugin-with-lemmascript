@@ -225,6 +225,189 @@ method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) retu
   return false;
 }
 
+// ── Witness validation (the certifying-algorithm half) ──────────────────────────────
+// The untrusted shell searches for a candidate laundering chain; these verified
+// functions vouch for it. `edgeExists` decides a single edge; `checkChain` confirms a
+// whole candidate is a genuine import path from `from` to a forbidden sink — so any
+// chain that reaches the lint message is proof-carrying.
+
+method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
+  ensures res ==> hasEdge(edges, a, b)         // soundness
+  ensures hasEdge(edges, a, b) ==> res          // completeness
+{
+  var i := 0;
+  while (i < |edges|)
+    invariant 0 <= i <= |edges|
+    invariant forall k :: 0 <= k < i ==> !(edges[k].source == a && edges[k].target == b)
+    decreases |edges| - i
+  {
+    if ((edges[i].source == a) && (edges[i].target == b)) {
+      return true;
+    }
+    i := (i + 1);
+  }
+  return false;
+}
+
+method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq<string>) returns (res: bool)
+  // soundness: a validated chain is a real import path from `from` to a forbidden sink.
+  ensures res ==> |chain| >= 1 && chain[0] == from && isPath(edges, chain)
+                  && (exists j :: 0 <= j < |sinks| && chain[|chain| - 1] == sinks[j])
+{
+  if (|chain| == 0) {
+    return false;
+  }
+  if (chain[0] != from) {
+    return false;
+  }
+  if !((chain[(|chain| - 1)] in sinks)) {
+    return false;
+  }
+  var i := 0;
+  while (i < (|chain| - 1))
+    invariant 0 <= i <= |chain| - 1
+    invariant forall k :: 0 <= k < i ==> hasEdge(edges, chain[k], chain[k + 1])
+    decreases |chain| - 1 - i
+  {
+    var i_t2 := edgeExists(edges, chain[i], chain[(i + 1)]);
+    if !(i_t2) {
+      return false;
+    }
+    assert hasEdge(edges, chain[i], chain[i + 1]);   // edgeExists soundness
+    i := (i + 1);
+  }
+  assert isPath(edges, chain);   // every consecutive pair is an edge
+  return true;
+}
+
+// ── Verified witness CONSTRUCTION: findReachPath ────────────────────────────────────
+// A path-carrying BFS. The frontier holds whole paths; a ghost `ends` mirrors their
+// endpoints so the completeness/termination argument reduces to canReach's (over the
+// node set `ends`), while path validity is carried directly. Returns a real witness
+// path whenever a sink is reachable, [] otherwise — sound AND complete.
+
+// Append one node to a path along a real edge — the result is still a path.
+lemma PathSnoc(edges: seq<Edge>, p: seq<string>, t: string)
+  requires |p| >= 1 && isPath(edges, p) && hasEdge(edges, p[|p| - 1], t)
+  ensures |p + [t]| >= 1 && (p + [t])[0] == p[0] && (p + [t])[|p + [t]| - 1] == t && isPath(edges, p + [t])
+{
+  var q := p + [t];
+  forall i | 0 <= i < |q| - 1 ensures hasEdge(edges, q[i], q[i + 1]) {
+    if i < |p| - 1 {
+      assert q[i] == p[i] && q[i + 1] == p[i + 1];
+    } else {
+      assert q[i] == p[|p| - 1] && q[i + 1] == t;
+    }
+  }
+}
+
+method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: seq<string>)
+  // soundness: a non-empty result is a real witness path from `from` to a sink
+  ensures |res| > 0 ==> (res[0] == from && isPath(edges, res)
+                         && (exists j :: 0 <= j < |sinks| && res[|res| - 1] == sinks[j]))
+  // completeness: an empty result means no sink is reachable
+  ensures |res| == 0 ==> !(exists j :: 0 <= j < |sinks| && reach(edges, from, sinks[j]))
+{
+  var frontier := [[from]];
+  var visited: seq<string> := [];
+  ghost var ends: seq<string> := [from];     // ends[k] == endpoint of frontier[k]
+  ghost var vset: set<string> := {};
+  while (|frontier| > 0)
+    invariant |ends| == |frontier|
+    invariant forall k :: 0 <= k < |frontier| ==> |frontier[k]| >= 1 && ends[k] == frontier[k][|frontier[k]| - 1]
+    invariant forall k :: 0 <= k < |frontier| ==> frontier[k][0] == from && isPath(edges, frontier[k])
+    invariant forall x :: x in ends ==> x in nodeUniverse(edges, from)
+    invariant forall x :: x in vset <==> x in visited
+    invariant vset <= nodeUniverse(edges, from)
+    invariant from in vset || from in ends
+    invariant forall j :: 0 <= j < |sinks| ==> sinks[j] !in vset
+    invariant forall x :: x in vset ==> forall t :: hasEdge(edges, x, t) ==> (t in vset || t in ends)
+    decreases |nodeUniverse(edges, from) - vset|, |frontier|
+  {
+    ghost var entryEnds := ends;
+    ghost var entryVset := vset;
+    var p := frontier[0];
+    assert |p| >= 1 && p[0] == from && isPath(edges, p);        // path-validity (k = 0)
+    assert entryEnds[0] == p[|p| - 1];                          // linkage (k = 0)
+    assert entryEnds[0] in nodeUniverse(edges, from);
+    frontier := frontier[1..];
+    ends := ends[1..];
+    var cur := p[(|p| - 1)];
+    assert cur == entryEnds[0];
+    // when cur is a sink, p is a path from `from` ending at a sink — return it
+    if (cur in sinks) {
+      return p;
+    }
+    if !((cur in visited)) {
+      assert cur !in vset;
+      assert cur in nodeUniverse(edges, from) - vset;           // ⇒ the difference strictly shrinks
+      visited := (visited + [cur]);
+      vset := vset + {cur};
+      var extended := Std.Collections.Seq.Map((e: Edge) => (p + [e.target]), Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
+      ghost var filtered := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
+      ghost var succ := Std.Collections.Seq.Map((e: Edge) => e.target, filtered);
+      // every extended path is valid, ends at cur's out-neighbour succ[k], in the universe
+      forall k | 0 <= k < |extended|
+        ensures |extended[k]| >= 1 && extended[k][0] == from && isPath(edges, extended[k])
+                && extended[k][|extended[k]| - 1] == succ[k] && succ[k] in nodeUniverse(edges, from)
+      {
+        assert extended[k] == p + [filtered[k].target];         // Map
+        assert succ[k] == filtered[k].target;                   // Map
+        FilterIn((e: Edge) => (e.source == cur), edges, filtered[k]);
+        assert hasEdge(edges, cur, filtered[k].target);
+        PathSnoc(edges, p, filtered[k].target);
+      }
+      // succ contains EVERY out-neighbour of cur — keeps the closure invariant
+      forall t | hasEdge(edges, cur, t)
+        ensures t in succ
+      {
+        var m :| 0 <= m < |edges| && edges[m].source == cur && edges[m].target == t;
+        FilterContains((e: Edge) => (e.source == cur), edges, m);
+        var k :| 0 <= k < |filtered| && filtered[k] == edges[m];
+        assert succ[k] == filtered[k].target == t;
+      }
+      ends := ends + succ;
+      frontier := (frontier + extended);
+      // linkage + path-validity for the new frontier
+      assert forall k :: 0 <= k < |frontier| ==>
+        |frontier[k]| >= 1 && ends[k] == frontier[k][|frontier[k]| - 1] && frontier[k][0] == from && isPath(edges, frontier[k]);
+      // re-establish the closure invariant: every visited node's successor is visited or queued
+      assert entryEnds == [entryEnds[0]] + entryEnds[1..];
+      forall x | x in vset
+        ensures forall t :: hasEdge(edges, x, t) ==> (t in vset || t in ends)
+      {
+        forall t | hasEdge(edges, x, t)
+          ensures t in vset || t in ends
+        {
+          if x == cur {
+            assert t in succ;                                   // out-neighbour of cur ⇒ in succ ⊆ ends
+          } else {
+            assert x in entryVset;                              // x ∈ vset = entryVset ∪ {cur}, x ≠ cur
+            if !(t in entryVset) {
+              assert t in entryEnds;                            // entry closure invariant
+              if t == entryEnds[0] {
+                assert t == cur;                                // entryEnds[0] = cur ⇒ t ∈ vset
+              } else {
+                assert t in entryEnds[1..];                     // ⊆ ends
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  // frontier empty ⇒ ends empty ⇒ vset closed under edges and contains `from`.
+  assert |ends| == 0;
+  assert from in vset;
+  assert forall x :: x in vset ==> forall t :: hasEdge(edges, x, t) ==> t in vset;
+  forall j | 0 <= j < |sinks| ensures !reach(edges, from, sinks[j]) {
+    if reach(edges, from, sinks[j]) {
+      ClosedReachable(edges, from, vset, sinks[j]);             // ⇒ sinks[j] ∈ vset, contradicts the invariant
+    }
+  }
+  return [];
+}
+
 // ── The headline meta-theorem: we STRICTLY DOMINATE one-hop checking ────────────────
 // `directViolation` is what every incumbent linter decides: a DIRECT source→sink
 // import edge. `reachViolation` is the true property `violates` decides: a source

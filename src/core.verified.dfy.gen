@@ -49,3 +49,60 @@ method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) retu
   }
   return false;
 }
+
+method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
+{
+  var i := 0;
+  while (i < |edges|)
+  {
+    if ((edges[i].source == a) && (edges[i].target == b)) {
+      return true;
+    }
+    i := (i + 1);
+  }
+  return false;
+}
+
+method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq<string>) returns (res: bool)
+{
+  if (|chain| == 0) {
+    return false;
+  }
+  if (chain[0] != from) {
+    return false;
+  }
+  if !((chain[(|chain| - 1)] in sinks)) {
+    return false;
+  }
+  var i := 0;
+  while (i < (|chain| - 1))
+  {
+    var i_t2 := edgeExists(edges, chain[i], chain[(i + 1)]);
+    if !(i_t2) {
+      return false;
+    }
+    i := (i + 1);
+  }
+  return true;
+}
+
+method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: seq<string>)
+{
+  var frontier := [[from]];
+  var visited: seq<string> := [];
+  while (|frontier| > 0)
+  {
+    var p := frontier[0];
+    frontier := frontier[1..];
+    var cur := p[(|p| - 1)];
+    if (cur in sinks) {
+      return p;
+    }
+    if !((cur in visited)) {
+      visited := (visited + [cur]);
+      var extended := Std.Collections.Seq.Map((e: Edge) => (p + [e.target]), Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
+      frontier := (frontier + extended);
+    }
+  }
+  return [];
+}

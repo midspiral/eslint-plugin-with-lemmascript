@@ -1,8 +1,8 @@
 // CLI demo — runs the VERIFIED core over a real extracted import graph and puts
 // the one-hop check (what every incumbent decides) next to the transitive reach
 // check (what we prove). Run:  npx tsx src/check.ts [scanRoot]
-import { buildGraph, modulesInZone, directViolation, shortestChain } from './graph';
-import { violates } from './core.verified';
+import { buildGraph, modulesInZone, directViolation } from './graph';
+import { violates, findReachPath } from './core.verified';
 
 const root = process.argv[2] ?? 'examples/layered/src';
 const { edges, modules } = buildGraph(root);
@@ -20,9 +20,13 @@ console.log(`  one-hop check (import/no-restricted-paths style) : ${direct ? 'VI
 console.log(`  reach check   (verified no-forbidden-reach)       : ${reach ? 'VIOLATION  ← caught' : 'pass'}`);
 
 if (reach) {
-  const chain = shortestChain(edges, ui, db);
-  console.log('\n  laundered import chain:');
-  console.log(`    ${chain ? chain.join('  →  ') : '(none)'}`);
+  let chain: string[] = [];
+  for (const s of ui) {
+    chain = findReachPath(edges, s, db); // verified: sound + complete witness
+    if (chain.length > 0) break;
+  }
+  console.log('\n  laundered import chain (verified witness):');
+  console.log(`    ${chain.length > 0 ? chain.join('  →  ') : '(none)'}`);
 }
 console.log('');
 process.exit(reach ? 1 : 0);

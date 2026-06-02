@@ -5,11 +5,12 @@
 > one-hop import every existing rule checks. If it stays silent, there is provably no
 > laundered path. The proof is what makes a green check mean what you think it means.
 
-**Status:** _working end-to-end (2026-06-01)._ Stages 0–1 proved (**23 Dafny obligations,
-0 errors**) and Stages 3–4 built: the `lemmascript/no-forbidden-reach` flat-config rule runs
-in **real ESLint 9** and flags the laundered `ui → services → db` violation that one-hop
-linters miss — printing the chain — while the whole shell typechecks. Remaining: Stage 2
-(the verified witness path; the chain shown today is an unverified display helper).
+**Status:** _working end-to-end (2026-06-01)._ Stages 0–4 done — **30 Dafny obligations,
+0 errors.** The `lemmascript/no-forbidden-reach` flat-config rule runs in **real ESLint 9**
+and flags the laundered `ui → services → db` violation that one-hop linters miss, printing a
+chain that is itself a **verified** witness (`findReachPath`, sound + complete); the whole
+shell typechecks. The verified core now decides the verdict **and** constructs the witness —
+no unverified search remains; the only trusted input is graph extraction (§5).
 **Category:** greenfield verified feature, distributed through a brownfield host's
 **extension API** (an ESLint flat-config plugin) — no fork.
 
@@ -252,7 +253,7 @@ Verified core first; the shell is glue that can only call it.
 |---|---|---|
 | **0 — reachability core** | `reach` predicate; `canReach` (sound + complete + terminating); `reachesAny` | **✓ done** (reused xyflow `canReach`; `reachesAny` set-reach) |
 | **1 — constraint + domination** | `violates` decides a constraint exactly; **domination + strictness** theorems (the "why") with the laundered-path counterexample | **✓ done** (`violates`; `Domination`; `Strictness` = `ui→svc→db`) |
-| **2 — witness path** | `findReachPath` returns the offending chain; proven a valid source→sink path | _planned_ (shell uses an unverified `shortestChain` for the message meanwhile) |
+| **2 — witness path** | `findReachPath` returns the offending chain; proven a valid source→sink path | **✓ done** (path-carrying BFS, sound + complete via a ghost `ends` mirror + `PathSnoc`; rule + demo use it; unverified `shortestChain` removed. Bonus: `edgeExists`/`checkChain` certifying validator also verified) |
 | **3 — ESLint plugin shell** | graph extraction (crawl/cache), `no-forbidden-reach` rule, options schema, report with chain | **✓ done** (TS-parser extractor in `graph.ts`; rule wires verified `reachesAny`; per-root cached graph) |
 | **4 — demo + side-by-side** | layered sample project; `import/no-restricted-paths` passes while we catch; run in CI, observed | **✓ done** (`examples/layered/`; real `eslint` flags both ui files w/ chain; CLI `check.ts` shows one-hop pass vs reach catch) |
 | **5 — order-respecting note (optional)** | prove direct checking *is* sound for a partial-order layering — scopes the tool honestly: forbidden-reach is for isolation/enclave policies, the case the order doesn't cover | _deferred_ |

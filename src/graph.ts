@@ -98,42 +98,5 @@ export function directViolation(edges: Edge[], sources: string[], sinks: string[
   return edges.some((e) => S.has(e.source) && T.has(e.target));
 }
 
-// DISPLAY-ONLY shortest laundering chain, for the lint message (UNVERIFIED —
-// the verified witness `findReachPath` is Stage 2). Multi-source BFS recording
-// predecessors; the first sink reached gives a shortest source→sink chain.
-export function shortestChain(edges: Edge[], sources: string[], sinks: string[]): string[] | null {
-  const adj = new Map<string, string[]>();
-  for (const e of edges) {
-    const a = adj.get(e.source);
-    if (a) a.push(e.target);
-    else adj.set(e.source, [e.target]);
-  }
-  const sinkSet = new Set(sinks);
-  const prev = new Map<string, string | null>();
-  const queue: string[] = [];
-  for (const s of sources) {
-    if (!prev.has(s)) {
-      prev.set(s, null);
-      queue.push(s);
-    }
-  }
-  while (queue.length > 0) {
-    const cur = queue.shift() as string;
-    if (sinkSet.has(cur)) {
-      const path: string[] = [];
-      let n: string | null = cur;
-      while (n != null) {
-        path.unshift(n);
-        n = prev.get(n) ?? null;
-      }
-      return path;
-    }
-    for (const nx of adj.get(cur) ?? []) {
-      if (!prev.has(nx)) {
-        prev.set(nx, cur);
-        queue.push(nx);
-      }
-    }
-  }
-  return null;
-}
+// NB: the laundering chain shown in errors is built by the VERIFIED `findReachPath`
+// in core.verified.ts (sound + complete) — there is no unverified witness search.

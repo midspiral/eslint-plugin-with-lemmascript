@@ -5,8 +5,8 @@
 // rule contributes only extraction, options, and reporting.
 import { ESLintUtils } from '@typescript-eslint/utils';
 import { resolve, relative } from 'node:path';
-import { buildGraph, modulesInZone, shortestChain, type Graph } from './graph';
-import { reachesAny } from './core.verified';
+import { buildGraph, modulesInZone, type Graph } from './graph';
+import { findReachPath } from './core.verified';
 
 type Constraint = { from: string; to: string };
 type Options = [{ root?: string; constraints: Constraint[] }];
@@ -73,13 +73,15 @@ export const noForbiddenReach = createRule<Options, MessageIds>({
           const sources = modulesInZone(graph.modules, c.from);
           if (!sources.includes(selfId)) continue; // only report on a source-zone file
           const sinks = modulesInZone(graph.modules, c.to);
-          // ── the verified decision: does THIS module reach any forbidden sink? ──
-          if (reachesAny(graph.edges, selfId, sinks)) {
-            const chain = shortestChain(graph.edges, [selfId], sinks);
+          // ── verified construction: a witness chain, or [] if no forbidden reach ──
+          // findReachPath is proven sound + complete, so a non-empty result both
+          // decides the violation AND is a genuine import path to a sink.
+          const chain = findReachPath(graph.edges, selfId, sinks);
+          if (chain.length > 0) {
             context.report({
               node,
               messageId: 'forbiddenReach',
-              data: { from: c.from, to: c.to, chain: chain ? chain.join(' → ') : selfId },
+              data: { from: c.from, to: c.to, chain: chain.join(' → ') },
             });
           }
         }
