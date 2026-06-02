@@ -34,8 +34,8 @@
   },
   "files": [
     "dist",
-    "src",
-    "DESIGN.md",
+    "src/core.verified.ts",
+    "src/core.verified.dfy",
     "README.md",
     "LICENSE"
   ],
