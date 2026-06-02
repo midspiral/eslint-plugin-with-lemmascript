@@ -76,7 +76,13 @@ npx eslint .
 ```
 
 Any source module that can reach a forbidden zone — through *any* import chain — is reported,
-with the offending chain in the message.
+with the offending chain in the message. A UI module that reaches the DB layer only through a
+service is still caught:
+
+```
+src/ui/Button.ts
+  1:1  error  'ui' must not reach 'db' — laundered through: ui/Button.ts → services/format.ts → db/client.ts  lemmascript/no-forbidden-reach
+```
 
 **Options**
 - `root` — directory module ids are resolved against (default: the working directory).
@@ -89,7 +95,7 @@ with the offending chain in the message.
 
 ## Try the demo
 
-The repo ships a sample layered project under `examples/layered/` with a seeded *laundered*
+The repo (not the npm package) ships a sample layered project under `examples/layered/` with a seeded *laundered*
 violation — `ui/Button.ts → services/format.ts → db/client.ts`, and no direct `ui → db`
 import. From the repo root:
 
