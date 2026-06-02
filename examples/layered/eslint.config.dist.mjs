@@ -1,8 +1,7 @@
-// Demo flat config: enforce "ui must not reach db" with the verified rule.
-// Run from the project root:
-//   npx eslint examples/layered/src --config examples/layered/eslint.config.ts
+// Loads the BUILT plugin from dist/ in plain Node ESM — the published-artifact smoke test.
+//   npx eslint examples/layered/src --config examples/layered/eslint.config.dist.mjs
 import tsParser from '@typescript-eslint/parser';
-import lemmascript from '../../src/index.js';
+import lemmascript from '../../dist/index.js';
 
 export default [
   {

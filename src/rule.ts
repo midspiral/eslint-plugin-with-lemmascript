@@ -5,15 +5,15 @@
 // rule contributes only extraction, options, and reporting.
 import { ESLintUtils } from '@typescript-eslint/utils';
 import { resolve, relative } from 'node:path';
-import { buildGraph, modulesInZone, type Graph } from './graph';
-import { findReachPath } from './core.verified';
+import { buildGraph, modulesInZone, type Graph } from './graph.js';
+import { findReachPath } from './core.verified.js';
 
 type Constraint = { from: string; to: string };
 type Options = [{ root?: string; constraints: Constraint[] }];
 type MessageIds = 'forbiddenReach';
 
 const createRule = ESLintUtils.RuleCreator(
-  (name) => `https://github.com/lemmascript/eslint-plugin-lemmascript#${name}`
+  (name) => `https://github.com/midspiral/eslint-plugin-with-lemmascript#${name}`
 );
 
 // One global import graph per scan-root, shared across files in the lint run.

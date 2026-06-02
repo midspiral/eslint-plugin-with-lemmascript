@@ -14,7 +14,7 @@ no unverified search remains; the only trusted input is graph extraction (§5).
 **Category:** greenfield verified feature, distributed through a brownfield host's
 **extension API** (an ESLint flat-config plugin) — no fork.
 
-`eslint-plugin-lemmascript` is positioned as a *home* for verified lint rules, with
+`eslint-plugin-with-lemmascript` is positioned as a *home* for verified lint rules, with
 `no-forbidden-reach` as the first. The namespace advertises the selling point
 (*verified*); the rule name carries the *what*.
 
@@ -206,7 +206,7 @@ verified core with no depth cap.
 
 Flat-config usage:
 ```js
-import lemmascript from 'eslint-plugin-lemmascript';
+import lemmascript from 'eslint-plugin-with-lemmascript';
 export default [{
   plugins: { lemmascript },
   rules: {

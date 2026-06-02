@@ -1,23 +1,66 @@
 {
-  "name": "eslint-plugin-lemmascript",
-  "private": true,
-  "version": "0.0.0",
+  "name": "eslint-plugin-with-lemmascript",
+  "version": "0.1.0",
   "type": "module",
-  "main": "src/index.ts",
+  "description": "Formally-verified ESLint rules, proved with LemmaScript. no-forbidden-reach enforces architecture boundaries through any import chain — not just direct imports.",
+  "keywords": [
+    "eslint",
+    "eslintplugin",
+    "eslint-plugin",
+    "architecture",
+    "boundaries",
+    "import",
+    "dependency",
+    "verified",
+    "formal-verification",
+    "lemmascript",
+    "no-forbidden-reach"
+  ],
+  "license": "MIT",
+  "author": "midspiral <namin@midspiral.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midspiral/eslint-plugin-with-lemmascript.git"
+  },
+  "homepage": "https://github.com/midspiral/eslint-plugin-with-lemmascript#readme",
+  "bugs": "https://github.com/midspiral/eslint-plugin-with-lemmascript/issues",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "src",
+    "DESIGN.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "regen": "npx tsx ../LemmaScript/tools/src/lsc.ts regen --backend=dafny",
     "verify": "../LemmaScript/tools/check.sh dafny",
     "demo": "tsx src/check.ts",
-    "lint:demo": "eslint examples/layered/src --config examples/layered/eslint.config.js"
+    "lint:demo": "eslint examples/layered/src --config examples/layered/eslint.config.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@typescript-eslint/utils": "^8.0.0"
   },
   "peerDependencies": {
-    "eslint": ">=9"
+    "eslint": ">=9",
+    "typescript": ">=5"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "@typescript-eslint/parser": "^8.0.0",
-    "@typescript-eslint/utils": "^8.0.0",
     "eslint": "^9.0.0",
     "jiti": "^2.7.0",
     "tsx": "^4.19.0",

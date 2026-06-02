@@ -1,8 +1,8 @@
 // CLI demo — runs the VERIFIED core over a real extracted import graph and puts
 // the one-hop check (what every incumbent decides) next to the transitive reach
 // check (what we prove). Run:  npx tsx src/check.ts [scanRoot]
-import { buildGraph, modulesInZone, directViolation } from './graph';
-import { violates, findReachPath } from './core.verified';
+import { buildGraph, modulesInZone, directViolation } from './graph.js';
+import { violates, findReachPath } from './core.verified.js';
 
 const root = process.argv[2] ?? 'examples/layered/src';
 const { edges, modules } = buildGraph(root);
