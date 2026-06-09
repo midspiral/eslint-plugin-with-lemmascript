@@ -2,6 +2,56 @@
 
 datatype Edge = Edge(source: string, target: string)
 
+// ── Surfaced meta-theorems (statements in core.verified.ts; proofs here). Placed
+// before the methods to match generator order; they reference predicates/lemmas
+// defined further below (Dafny resolves names globally). ──────────────────────────
+
+// DOMINATION: every direct violation is a real (reach) violation — we never miss
+// what the cheap one-hop check catches.
+function domination(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>): bool
+  requires directViolation(edges, sources, sinks)
+{
+  true
+}
+
+lemma domination_ensures(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>)
+  requires directViolation(edges, sources, sinks)
+  ensures reachViolation(edges, sources, sinks)
+{
+  var i, j :| 0 <= i < |sources| && 0 <= j < |sinks| && hasEdge(edges, sources[i], sinks[j]);
+  HasEdgeReach(edges, sources[i], sinks[j]);   // reach(sources[i], sinks[j])
+}
+
+// STRICTNESS witness: ui → svc → db, forbidding ui ⇝ db. No direct ui → db edge.
+function strictnessEdges(): seq<Edge>
+{
+  [Edge("ui", "svc"), Edge("svc", "db")]
+}
+
+function strictness(): bool
+{
+  true
+}
+
+// On that witness a reach-violation EXISTS but no direct violation does — the
+// laundered path the one-hop check provably misses.
+lemma strictness_ensures()
+  ensures reachViolation(strictnessEdges(), ["ui"], ["db"])
+  ensures !(directViolation(strictnessEdges(), ["ui"], ["db"]))
+{
+  var edges := strictnessEdges();
+  assert edges[0] == Edge("ui", "svc") && edges[1] == Edge("svc", "db");
+  assert hasEdge(edges, "ui", "svc");          // witnessed by index 0
+  assert hasEdge(edges, "svc", "db");          // witnessed by index 1
+  ReachRefl(edges, "ui");
+  ReachExtend(edges, "ui", "ui", "svc");       // reach(ui, svc)
+  ReachExtend(edges, "ui", "svc", "db");       // reach(ui, db) — the 2-hop laundered path
+  assert reach(edges, "ui", "db");
+  // No DIRECT ui → db edge: neither of the two edges is ui → db.
+  forall k | 0 <= k < |edges| ensures !(edges[k].source == "ui" && edges[k].target == "db") {}
+  assert !hasEdge(edges, "ui", "db");
+}
+
 // ── Reachability spec + proof scaffolding (hand-written) ───────────────────────────
 // Additions only: the `method` bodies below are generated verbatim; predicates,
 // lemmas, invariants, decreases and asserts are the hand-written proof. The
@@ -114,8 +164,10 @@ lemma ClosedReachable(edges: seq<Edge>, from: string, visited: set<string>, y: s
 
 // ── canReach: decides reach EXACTLY (sound + complete + terminating) ────────────────
 method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
-  ensures res ==> reach(edges, from, to)        // soundness
-  ensures reach(edges, from, to) ==> res         // completeness
+  // soundness
+  ensures (res ==> reach(edges, from, to))
+  // completeness
+  ensures (reach(edges, from, to) ==> res)
 {
   var frontier := [from];
   var visited: seq<string> := [];
@@ -181,8 +233,9 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
 
 // ── reachesAny: reach to a SET, decided exactly ────────────────────────────────────
 method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: bool)
-  ensures res ==> exists j :: 0 <= j < |sinks| && reach(edges, from, sinks[j])     // soundness
-  ensures (exists j :: 0 <= j < |sinks| && reach(edges, from, sinks[j])) ==> res    // completeness
+  // soundness / completeness: decides reach-to-set exactly
+  ensures (res ==> exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j])))
+  ensures ((exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))) ==> res)
 {
   var i := 0;
   while (i < |sinks|)
@@ -204,8 +257,9 @@ method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (r
 // ── violates: decide a forbidden-reach constraint exactly ───────────────────────────
 // res ⟺ some `sources` module reaches some `sinks` module (through any chain).
 method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) returns (res: bool)
-  ensures res ==> exists i, j :: 0 <= i < |sources| && 0 <= j < |sinks| && reach(edges, sources[i], sinks[j])
-  ensures (exists i, j :: 0 <= i < |sources| && 0 <= j < |sinks| && reach(edges, sources[i], sinks[j])) ==> res
+  // soundness / completeness: decides "any source reaches any sink" exactly
+  ensures (res ==> exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j])))
+  ensures ((exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j]))) ==> res)
 {
   var i := 0;
   while (i < |sources|)
@@ -232,8 +286,10 @@ method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) retu
 // chain that reaches the lint message is proof-carrying.
 
 method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
-  ensures res ==> hasEdge(edges, a, b)         // soundness
-  ensures hasEdge(edges, a, b) ==> res          // completeness
+  // soundness
+  ensures (res ==> hasEdge(edges, a, b))
+  // completeness
+  ensures (hasEdge(edges, a, b) ==> res)
 {
   var i := 0;
   while (i < |edges|)
@@ -251,8 +307,7 @@ method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
 
 method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq<string>) returns (res: bool)
   // soundness: a validated chain is a real import path from `from` to a forbidden sink.
-  ensures res ==> |chain| >= 1 && chain[0] == from && isPath(edges, chain)
-                  && (exists j :: 0 <= j < |sinks| && chain[|chain| - 1] == sinks[j])
+  ensures (res ==> ((((|chain| >= 1) && (chain[0] == from)) && isPath(edges, chain)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (chain[(|chain| - 1)] == sinks[j]))))
 {
   if (|chain| == 0) {
     return false;
@@ -303,10 +358,9 @@ lemma PathSnoc(edges: seq<Edge>, p: seq<string>, t: string)
 
 method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: seq<string>)
   // soundness: a non-empty result is a real witness path from `from` to a sink
-  ensures |res| > 0 ==> (res[0] == from && isPath(edges, res)
-                         && (exists j :: 0 <= j < |sinks| && res[|res| - 1] == sinks[j]))
+  ensures ((|res| > 0) ==> (((res[0] == from) && isPath(edges, res)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (res[(|res| - 1)] == sinks[j]))))
   // completeness: an empty result means no sink is reachable
-  ensures |res| == 0 ==> !(exists j :: 0 <= j < |sinks| && reach(edges, from, sinks[j]))
+  ensures ((|res| == 0) ==> !(exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))))
 {
   var frontier := [[from]];
   var visited: seq<string> := [];
@@ -423,34 +477,12 @@ ghost predicate reachViolation(edges: seq<Edge>, sources: seq<string>, sinks: se
   exists i, j :: 0 <= i < |sources| && 0 <= j < |sinks| && reach(edges, sources[i], sinks[j])
 }
 
-// DOMINATION: every direct violation is a real (reach) violation — we never miss
-// what the cheap one-hop check catches.
-lemma Domination(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>)
-  requires directViolation(edges, sources, sinks)
-  ensures reachViolation(edges, sources, sinks)
-{
-  var i, j :| 0 <= i < |sources| && 0 <= j < |sinks| && hasEdge(edges, sources[i], sinks[j]);
-  HasEdgeReach(edges, sources[i], sinks[j]);   // reach(sources[i], sinks[j])
-}
-
-// STRICTNESS: there is a graph where a reach-violation EXISTS but no direct
-// violation does — the laundered path the one-hop check provably misses.
-// Witness: ui → svc → db, forbidding ui ⇝ db. There is no direct ui → db edge.
+// The existential meta-theorem (derived from the concrete witness `strictness`,
+// whose statement is surfaced in core.verified.ts and proved in strictness_ensures).
 lemma Strictness()
   ensures exists edges: seq<Edge>, sources: seq<string>, sinks: seq<string> ::
             reachViolation(edges, sources, sinks) && !directViolation(edges, sources, sinks)
 {
-  var edges := [Edge("ui", "svc"), Edge("svc", "db")];
-  var sources := ["ui"];
-  var sinks := ["db"];
-  assert edges[0] == Edge("ui", "svc") && edges[1] == Edge("svc", "db");
-  assert hasEdge(edges, "ui", "svc");          // witnessed by index 0
-  assert hasEdge(edges, "svc", "db");          // witnessed by index 1
-  ReachRefl(edges, "ui");
-  ReachExtend(edges, "ui", "ui", "svc");       // reach(ui, svc)
-  ReachExtend(edges, "ui", "svc", "db");       // reach(ui, db) — the 2-hop laundered path
-  // No DIRECT ui → db edge: neither of the two edges is ui → db.
-  forall k | 0 <= k < |edges| ensures !(edges[k].source == "ui" && edges[k].target == "db") {}
-  assert !hasEdge(edges, "ui", "db");
-  assert reachViolation(edges, sources, sinks) && !directViolation(edges, sources, sinks);
+  strictness_ensures();
+  assert reachViolation(strictnessEdges(), ["ui"], ["db"]) && !directViolation(strictnessEdges(), ["ui"], ["db"]);
 }

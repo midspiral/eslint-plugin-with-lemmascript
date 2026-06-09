@@ -2,7 +2,37 @@
 
 datatype Edge = Edge(source: string, target: string)
 
+function domination(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>): bool
+  requires directViolation(edges, sources, sinks)
+{
+  true
+}
+
+lemma domination_ensures(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>)
+  requires directViolation(edges, sources, sinks)
+  ensures reachViolation(edges, sources, sinks)
+{
+}
+
+function strictnessEdges(): seq<Edge>
+{
+  [Edge("ui", "svc"), Edge("svc", "db")]
+}
+
+function strictness(): bool
+{
+  true
+}
+
+lemma strictness_ensures()
+  ensures reachViolation(strictnessEdges(), ["ui"], ["db"])
+  ensures !(directViolation(strictnessEdges(), ["ui"], ["db"]))
+{
+}
+
 method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
+  ensures (res ==> reach(edges, from, to))
+  ensures (reach(edges, from, to) ==> res)
 {
   var frontier := [from];
   var visited: seq<string> := [];
@@ -23,6 +53,8 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
 }
 
 method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: bool)
+  ensures (res ==> exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j])))
+  ensures ((exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))) ==> res)
 {
   var i := 0;
   while (i < |sinks|)
@@ -37,6 +69,8 @@ method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (r
 }
 
 method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) returns (res: bool)
+  ensures (res ==> exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j])))
+  ensures ((exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j]))) ==> res)
 {
   var i := 0;
   while (i < |sources|)
@@ -51,6 +85,8 @@ method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) retu
 }
 
 method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
+  ensures (res ==> hasEdge(edges, a, b))
+  ensures (hasEdge(edges, a, b) ==> res)
 {
   var i := 0;
   while (i < |edges|)
@@ -64,6 +100,7 @@ method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
 }
 
 method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq<string>) returns (res: bool)
+  ensures (res ==> ((((|chain| >= 1) && (chain[0] == from)) && isPath(edges, chain)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (chain[(|chain| - 1)] == sinks[j]))))
 {
   if (|chain| == 0) {
     return false;
@@ -87,6 +124,8 @@ method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq
 }
 
 method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: seq<string>)
+  ensures ((|res| > 0) ==> (((res[0] == from) && isPath(edges, res)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (res[(|res| - 1)] == sinks[j]))))
+  ensures ((|res| == 0) ==> !(exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))))
 {
   var frontier := [[from]];
   var visited: seq<string> := [];

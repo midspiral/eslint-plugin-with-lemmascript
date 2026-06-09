@@ -31,6 +31,8 @@ interface Edge {
 // of node ids. Decides reach(from, to) exactly.
 export function canReach(edges: Edge[], from: string, to: string): boolean {
   //@ verify
+  //@ ensures \result ==> reach(edges, from, to)
+  //@ ensures reach(edges, from, to) ==> \result
   let frontier: string[] = [from];
   let visited: string[] = [];
   while (frontier.length > 0) {
@@ -52,6 +54,8 @@ export function canReach(edges: Edge[], from: string, to: string): boolean {
 // targets of a constraint are a set, so the boundary query is set-reach.
 export function reachesAny(edges: Edge[], from: string, sinks: string[]): boolean {
   //@ verify
+  //@ ensures \result ==> exists(j, 0 <= j && j < sinks.length && reach(edges, from, sinks[j]))
+  //@ ensures exists(j, 0 <= j && j < sinks.length && reach(edges, from, sinks[j])) ==> \result
   let i = 0;
   while (i < sinks.length) {
     if (canReach(edges, from, sinks[i])) {
@@ -67,6 +71,8 @@ export function reachesAny(edges: Edge[], from: string, sinks: string[]): boolea
 // rule enforces — and the one one-hop linters decide only a weaker version of.
 export function violates(edges: Edge[], sources: string[], sinks: string[]): boolean {
   //@ verify
+  //@ ensures \result ==> exists(i, exists(j, 0 <= i && i < sources.length && 0 <= j && j < sinks.length && reach(edges, sources[i], sinks[j])))
+  //@ ensures exists(i, exists(j, 0 <= i && i < sources.length && 0 <= j && j < sinks.length && reach(edges, sources[i], sinks[j]))) ==> \result
   let i = 0;
   while (i < sources.length) {
     if (reachesAny(edges, sources[i], sinks)) {
@@ -85,6 +91,8 @@ export function violates(edges: Edge[], sources: string[], sinks: string[]): boo
 // Decide hasEdge exactly: is there a direct edge a → b?
 export function edgeExists(edges: Edge[], a: string, b: string): boolean {
   //@ verify
+  //@ ensures \result ==> hasEdge(edges, a, b)
+  //@ ensures hasEdge(edges, a, b) ==> \result
   let i = 0;
   while (i < edges.length) {
     if (edges[i].source === a && edges[i].target === b) {
@@ -99,6 +107,7 @@ export function edgeExists(edges: Edge[], a: string, b: string): boolean {
 // starts at `from`, ends at a forbidden sink, and steps along real edges.
 export function checkChain(edges: Edge[], chain: string[], from: string, sinks: string[]): boolean {
   //@ verify
+  //@ ensures \result ==> (chain.length >= 1 && chain[0] === from && isPath(edges, chain) && exists(j, 0 <= j && j < sinks.length && chain[chain.length - 1] === sinks[j]))
   if (chain.length === 0) {
     return false;
   }
@@ -125,6 +134,8 @@ export function checkChain(edges: Edge[], chain: string[], from: string, sinks: 
 // its own reachability witness; no unverified search is trusted.
 export function findReachPath(edges: Edge[], from: string, sinks: string[]): string[] {
   //@ verify
+  //@ ensures \result.length > 0 ==> (\result[0] === from && isPath(edges, \result) && exists(j, 0 <= j && j < sinks.length && \result[\result.length - 1] === sinks[j]))
+  //@ ensures \result.length === 0 ==> !exists(j, 0 <= j && j < sinks.length && reach(edges, from, sinks[j]))
   let frontier: string[][] = [[from]];
   let visited: string[] = [];
   while (frontier.length > 0) {
@@ -141,4 +152,36 @@ export function findReachPath(edges: Edge[], from: string, sinks: string[]): str
     }
   }
   return [];
+}
+
+// ════════════════════════════════════════════════════════════════
+// The headline meta-theorems, surfaced. `reach`, `hasEdge`, `directViolation`,
+// `reachViolation` are ghost/spec predicates DEFINED in core.verified.dfy (a
+// path is not a runtime value); the `//@` clauses below REFERENCE them by name,
+// and the proofs live in the matching `_ensures` lemmas in the .dfy.
+// ════════════════════════════════════════════════════════════════
+
+// DOMINATION — every direct (one-hop) violation is a real reach-violation. So the
+// transitive check never misses what the cheap one-hop check every incumbent
+// linter uses would catch: it dominates it.
+export function domination(edges: Edge[], sources: string[], sinks: string[]): boolean {
+  //@ verify
+  //@ requires directViolation(edges, sources, sinks)
+  //@ ensures reachViolation(edges, sources, sinks)
+  return true;
+}
+
+// The laundering witness: ui → svc → db, with no direct ui → db edge.
+export function strictnessEdges(): Edge[] {
+  //@ verify
+  return [{ source: "ui", target: "svc" }, { source: "svc", target: "db" }];
+}
+
+// STRICTNESS — on that witness, "ui must not reach db" IS violated transitively
+// (ui → svc → db) yet there is NO direct violation. So the domination is STRICT:
+// a real laundered path the one-hop check provably misses.
+export function strictness(): boolean {
+  //@ verify
+  //@ ensures reachViolation(strictnessEdges(), ["ui"], ["db"]) && !directViolation(strictnessEdges(), ["ui"], ["db"])
+  return true;
 }
