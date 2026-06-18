@@ -1,5 +1,8 @@
 # eslint-plugin-with-lemmascript
 
+[![LemmaScript: verified](https://img.shields.io/badge/LemmaScript-verified-brightgreen)](https://github.com/midspiral/eslint-plugin-with-lemmascript/actions/workflows/lemmascript.yml)
+
+
 **Formally-verified ESLint rules.** Lint rules are heuristics you trust on faith. The rules
 here are different: their core decision is a *machine-checked theorem*, proved in
 [LemmaScript](https://lemmascript.com) — TypeScript verified through Dafny — and shipped as
