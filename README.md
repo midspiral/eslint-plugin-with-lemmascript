@@ -2,7 +2,6 @@
 
 [![LemmaScript verified](https://img.shields.io/github/actions/workflow/status/midspiral/eslint-plugin-with-lemmascript/lemmascript.yml?branch=main&label=LemmaScript%20verified)](https://github.com/midspiral/eslint-plugin-with-lemmascript/actions/workflows/lemmascript.yml)
 
-
 **Formally-verified ESLint rules.** Lint rules are heuristics you trust on faith. The rules
 here are different: their core decision is a *machine-checked theorem*, proved in
 [LemmaScript](https://lemmascript.com) — TypeScript verified through Dafny — and shipped as
