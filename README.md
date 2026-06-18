@@ -1,6 +1,6 @@
 # eslint-plugin-with-lemmascript
 
-[![LemmaScript: verified](https://img.shields.io/badge/LemmaScript-verified-brightgreen)](https://github.com/midspiral/eslint-plugin-with-lemmascript/actions/workflows/lemmascript.yml)
+[![LemmaScript verified](https://img.shields.io/github/actions/workflow/status/midspiral/eslint-plugin-with-lemmascript/lemmascript.yml?branch=main&label=LemmaScript%20verified)](https://github.com/midspiral/eslint-plugin-with-lemmascript/actions/workflows/lemmascript.yml)
 
 
 **Formally-verified ESLint rules.** Lint rules are heuristics you trust on faith. The rules
