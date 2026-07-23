@@ -195,15 +195,18 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
       assert cur in nodeUniverse(edges, from) - vset;   // ⇒ the difference strictly shrinks
       visited := (visited + [cur]);
       vset := vset + {cur};                    // cur ∉ vset (guard) ⇒ |universe - vset| drops by 1
-      var succ := Std.Collections.Seq.Map((e: Edge) => e.target, Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
+      var succ := (var s_map := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges); seq(|s_map|, i_map requires 0 <= i_map < |s_map| => var e := s_map[i_map]; e.target));
+      // `out` mirrors the comprehension's let-bound receiver. succ[j] == out[j].target
+      // holds because the comprehension indexes a VARIABLE (s_map), so Dafny's index
+      // axiom fires — it would not over an inlined `Filter(..)` (§8.6 E2).
+      ghost var out := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
       // succ elements are targets of cur's out-edges: reachable, and in the universe.
       forall x | x in succ
         ensures reach(edges, from, x) && x in nodeUniverse(edges, from)
       {
-        var filtered := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
         var j :| 0 <= j < |succ| && succ[j] == x;
-        assert filtered[j].source == cur && filtered[j].target == x;
-        FilterIn((e: Edge) => (e.source == cur), edges, filtered[j]);
+        assert out[j].source == cur && out[j].target == x;
+        FilterIn((e: Edge) => (e.source == cur), edges, out[j]);
         assert hasEdge(edges, cur, x);
         ReachExtend(edges, from, cur, x);
       }
@@ -211,11 +214,10 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
       forall t | hasEdge(edges, cur, t)
         ensures t in succ
       {
-        var filtered := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
         var i :| 0 <= i < |edges| && edges[i].source == cur && edges[i].target == t;
         FilterContains((e: Edge) => (e.source == cur), edges, i);
-        var j :| 0 <= j < |filtered| && filtered[j] == edges[i];
-        assert succ[j] == filtered[j].target == t;
+        var j :| 0 <= j < |out| && out[j] == edges[i];
+        assert succ[j] == out[j].target == t;
       }
       frontier := (frontier + succ);
     }
@@ -397,19 +399,21 @@ method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns
       assert cur in nodeUniverse(edges, from) - vset;           // ⇒ the difference strictly shrinks
       visited := (visited + [cur]);
       vset := vset + {cur};
-      var extended := Std.Collections.Seq.Map((e: Edge) => (p + [e.target]), Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
-      ghost var filtered := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
-      ghost var succ := Std.Collections.Seq.Map((e: Edge) => e.target, filtered);
+      var extended := (var s_map := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges); seq(|s_map|, i_map requires 0 <= i_map < |s_map| => var e := s_map[i_map]; (p + [e.target])));
+      // `out` mirrors the comprehension's let-bound receiver; extended[k] == p + [out[k].target]
+      // holds because the comprehension indexes a VARIABLE (s_map) — §8.6 E2.
+      ghost var out := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges);
+      ghost var succ := Std.Collections.Seq.Map((e: Edge) => e.target, out);
       // every extended path is valid, ends at cur's out-neighbour succ[k], in the universe
       forall k | 0 <= k < |extended|
         ensures |extended[k]| >= 1 && extended[k][0] == from && isPath(edges, extended[k])
                 && extended[k][|extended[k]| - 1] == succ[k] && succ[k] in nodeUniverse(edges, from)
       {
-        assert extended[k] == p + [filtered[k].target];         // Map
-        assert succ[k] == filtered[k].target;                   // Map
-        FilterIn((e: Edge) => (e.source == cur), edges, filtered[k]);
-        assert hasEdge(edges, cur, filtered[k].target);
-        PathSnoc(edges, p, filtered[k].target);
+        assert extended[k] == p + [out[k].target];              // seq comprehension
+        assert succ[k] == out[k].target;                        // Map
+        FilterIn((e: Edge) => (e.source == cur), edges, out[k]);
+        assert hasEdge(edges, cur, out[k].target);
+        PathSnoc(edges, p, out[k].target);
       }
       // succ contains EVERY out-neighbour of cur — keeps the closure invariant
       forall t | hasEdge(edges, cur, t)
@@ -417,8 +421,8 @@ method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns
       {
         var m :| 0 <= m < |edges| && edges[m].source == cur && edges[m].target == t;
         FilterContains((e: Edge) => (e.source == cur), edges, m);
-        var k :| 0 <= k < |filtered| && filtered[k] == edges[m];
-        assert succ[k] == filtered[k].target == t;
+        var k :| 0 <= k < |out| && out[k] == edges[m];
+        assert succ[k] == out[k].target == t;
       }
       ends := ends + succ;
       frontier := (frontier + extended);

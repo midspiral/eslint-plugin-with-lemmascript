@@ -45,7 +45,7 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
     }
     if !((cur in visited)) {
       visited := (visited + [cur]);
-      var succ := Std.Collections.Seq.Map((e: Edge) => e.target, Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
+      var succ := (var s_map := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges); seq(|s_map|, i_map requires 0 <= i_map < |s_map| => var e := s_map[i_map]; e.target));
       frontier := (frontier + succ);
     }
   }
@@ -139,7 +139,7 @@ method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns
     }
     if !((cur in visited)) {
       visited := (visited + [cur]);
-      var extended := Std.Collections.Seq.Map((e: Edge) => (p + [e.target]), Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges));
+      var extended := (var s_map := Std.Collections.Seq.Filter((e: Edge) => (e.source == cur), edges); seq(|s_map|, i_map requires 0 <= i_map < |s_map| => var e := s_map[i_map]; (p + [e.target])));
       frontier := (frontier + extended);
     }
   }
