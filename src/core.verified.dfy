@@ -236,8 +236,8 @@ method canReach(edges: seq<Edge>, from: string, to: string) returns (res: bool)
 // ── reachesAny: reach to a SET, decided exactly ────────────────────────────────────
 method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: bool)
   // soundness / completeness: decides reach-to-set exactly
-  ensures (res ==> exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j])))
-  ensures ((exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))) ==> res)
+  ensures (res ==> exists j: int :: (var i_logic0: bool := ((0 <= j) && (j < |sinks|)); (if i_logic0 then reach(edges, from, sinks[j]) else i_logic0)))
+  ensures ((exists j: int :: (var i_logic1: bool := ((0 <= j) && (j < |sinks|)); (if i_logic1 then reach(edges, from, sinks[j]) else i_logic1))) ==> res)
 {
   var i := 0;
   while (i < |sinks|)
@@ -245,8 +245,8 @@ method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (r
     invariant forall k :: 0 <= k < i ==> !reach(edges, from, sinks[k])
     decreases |sinks| - i
   {
-    var i_t0 := canReach(edges, from, sinks[i]);
-    if i_t0 {
+    var i_t2 := canReach(edges, from, sinks[i]);
+    if i_t2 {
       assert reach(edges, from, sinks[i]);     // canReach sound ⇒ witness j = i
       return true;
     }
@@ -260,8 +260,8 @@ method reachesAny(edges: seq<Edge>, from: string, sinks: seq<string>) returns (r
 // res ⟺ some `sources` module reaches some `sinks` module (through any chain).
 method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) returns (res: bool)
   // soundness / completeness: decides "any source reaches any sink" exactly
-  ensures (res ==> exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j])))
-  ensures ((exists i: int, j: int :: (((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)) && reach(edges, sources[i], sinks[j]))) ==> res)
+  ensures (res ==> exists i: int, j: int :: (var i_logic3: bool := ((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)); (if i_logic3 then reach(edges, sources[i], sinks[j]) else i_logic3)))
+  ensures ((exists i: int, j: int :: (var i_logic4: bool := ((((0 <= i) && (i < |sources|)) && (0 <= j)) && (j < |sinks|)); (if i_logic4 then reach(edges, sources[i], sinks[j]) else i_logic4))) ==> res)
 {
   var i := 0;
   while (i < |sources|)
@@ -269,8 +269,8 @@ method violates(edges: seq<Edge>, sources: seq<string>, sinks: seq<string>) retu
     invariant forall ip, j :: 0 <= ip < i && 0 <= j < |sinks| ==> !reach(edges, sources[ip], sinks[j])
     decreases |sources| - i
   {
-    var i_t1 := reachesAny(edges, sources[i], sinks);
-    if i_t1 {
+    var i_t5 := reachesAny(edges, sources[i], sinks);
+    if i_t5 {
       ghost var j :| 0 <= j < |sinks| && reach(edges, sources[i], sinks[j]);   // from reachesAny soundness
       assert 0 <= i < |sources| && 0 <= j < |sinks| && reach(edges, sources[i], sinks[j]);
       return true;
@@ -309,7 +309,7 @@ method edgeExists(edges: seq<Edge>, a: string, b: string) returns (res: bool)
 
 method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq<string>) returns (res: bool)
   // soundness: a validated chain is a real import path from `from` to a forbidden sink.
-  ensures (res ==> ((((|chain| >= 1) && (chain[0] == from)) && isPath(edges, chain)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (chain[(|chain| - 1)] == sinks[j]))))
+  ensures (res ==> (var i_logic6 := (var i_logic7: bool := ((|chain| >= 1) && (chain[0] == from)); (if i_logic7 then isPath(edges, chain) else i_logic7)); (if i_logic6 then exists j: int :: (((0 <= j) && (j < |sinks|)) && (chain[(|chain| - 1)] == sinks[j])) else i_logic6)))
 {
   if (|chain| == 0) {
     return false;
@@ -326,8 +326,8 @@ method checkChain(edges: seq<Edge>, chain: seq<string>, from: string, sinks: seq
     invariant forall k :: 0 <= k < i ==> hasEdge(edges, chain[k], chain[k + 1])
     decreases |chain| - 1 - i
   {
-    var i_t2 := edgeExists(edges, chain[i], chain[(i + 1)]);
-    if !(i_t2) {
+    var i_t8 := edgeExists(edges, chain[i], chain[(i + 1)]);
+    if !(i_t8) {
       return false;
     }
     assert hasEdge(edges, chain[i], chain[i + 1]);   // edgeExists soundness
@@ -360,9 +360,9 @@ lemma PathSnoc(edges: seq<Edge>, p: seq<string>, t: string)
 
 method findReachPath(edges: seq<Edge>, from: string, sinks: seq<string>) returns (res: seq<string>)
   // soundness: a non-empty result is a real witness path from `from` to a sink
-  ensures ((|res| > 0) ==> (((res[0] == from) && isPath(edges, res)) && exists j: int :: (((0 <= j) && (j < |sinks|)) && (res[(|res| - 1)] == sinks[j]))))
+  ensures ((|res| > 0) ==> (var i_logic9 := (var i_logic10: bool := (res[0] == from); (if i_logic10 then isPath(edges, res) else i_logic10)); (if i_logic9 then exists j: int :: (((0 <= j) && (j < |sinks|)) && (res[(|res| - 1)] == sinks[j])) else i_logic9)))
   // completeness: an empty result means no sink is reachable
-  ensures ((|res| == 0) ==> !(exists j: int :: (((0 <= j) && (j < |sinks|)) && reach(edges, from, sinks[j]))))
+  ensures ((|res| == 0) ==> !(exists j: int :: (var i_logic11: bool := ((0 <= j) && (j < |sinks|)); (if i_logic11 then reach(edges, from, sinks[j]) else i_logic11))))
 {
   var frontier := [[from]];
   var visited: seq<string> := [];
